@@ -10,27 +10,51 @@
            margin: 0; background: #f5f5f5; }
     a { display: inline-block; padding: 12px 24px; background: #888;
         color: #fff; text-decoration: none; border-radius: 8px; margin-top: 16px; }
+    p { color: #555; }
   </style>
 </head>
 <body>
   <script>
-    const p = new URLSearchParams(location.search);
-    const name  = p.get('n') || '';
-    const phone = p.get('p') || '';
-    if (name && phone) {
+    function makeVcard(name, phone) {
       const parts = name.split(' ');
-      const vcf = 'BEGIN:VCARD\r\nVERSION:3.0\r\nFN:' + name
+      return 'BEGIN:VCARD\r\nVERSION:3.0\r\nFN:' + name
         + '\r\nN:' + parts.slice(1).join(' ') + ';' + parts[0] + ';;;\r\n'
         + 'TEL;TYPE=CELL:' + phone + '\r\nEND:VCARD\r\n';
-      const blobUrl = URL.createObjectURL(new Blob([vcf], { type: 'text/vcard' }));
+    }
 
+    function download(content, filename) {
+      const blobUrl = URL.createObjectURL(new Blob([content], { type: 'text/vcard' }));
       const a = document.createElement('a');
       a.href = blobUrl;
-      a.download = name + '.vcf';
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
-
       a.textContent = '⬇ Erneut herunterladen';
+    }
+
+    const p = new URLSearchParams(location.search);
+
+    // Multi-Kontakt: ?contacts=[{"n":"...","p":"..."},...]&title=Gruppe
+    const contactsParam = p.get('contacts');
+    if (contactsParam) {
+      try {
+        const contacts = JSON.parse(contactsParam);
+        const title = p.get('title') || 'Kontakte';
+        const vcf = contacts.map(c => makeVcard(c.n, c.p)).join('');
+        download(vcf, title + '.vcf');
+        const info = document.createElement('p');
+        info.textContent = contacts.length + ' Kontakte gespeichert';
+        document.body.appendChild(info);
+      } catch (e) {
+        document.body.innerHTML = '<p>Ungültige Kontaktdaten.</p>';
+      }
+    } else {
+      // Einzel-Kontakt: ?n=Name&p=+49...
+      const name  = p.get('n') || '';
+      const phone = p.get('p') || '';
+      if (name && phone) {
+        download(makeVcard(name, phone), name + '.vcf');
+      }
     }
   </script>
 </body>
